@@ -222,6 +222,17 @@ class Base extends \WC_Shipping_Method
 			);
 
 			$response = get_transient($cacheKey);
+			if ( false !== $response && ! $this->isValidBasicCalculationResponse( $response ) ) {
+				delete_transient($cacheKey);
+				$response = false;
+				$logger->debug(
+					'Invalid eShopLogistic checkout calculation cache ignored.',
+					array(
+						'source' => 'eshoplogisticru',
+						'type'   => $this->getType(),
+					)
+				);
+			}
 
 			if(false === $response || (isset($adressRequired['adress_required']) && $adressRequired['adress_required'])) {
 				$calculationService = new CalculationService();
@@ -236,18 +247,24 @@ class Base extends \WC_Shipping_Method
 					$cityName
 				);
 
-				set_transient($cacheKey, $response, HOUR_IN_SECONDS);
+				if ( $this->isValidBasicCalculationResponse( $response ) ) {
+					set_transient($cacheKey, $response, HOUR_IN_SECONDS);
+				}
 			}
 
 			if(
+				is_array($response) &&
 				isset($response[$this->getType()]) &&
+				is_array($response[$this->getType()]) &&
 				!empty($response[$this->getType()])
 			) {
 				$shippingMethods[$this->id] = $response[$this->getType()];
 				$shippingMethods[$this->id]['debug'] = ( $response['debug'] ?? [] );
 				$cost = isset($response[$this->getType()]['price']) ? $response[$this->getType()]['price'] : 0;
 				if(is_array($cost))
-					$cost = isset($response[$this->getType()]['price']['value']) ? $response[$this->getType()]['price']['value'] : $cost;
+					$cost = isset($cost['value']) && is_numeric($cost['value']) ? $cost['value'] : 0;
+				if(!is_numeric($cost))
+					$cost = 0;
 
 				//Костыль для оброботки конфликтов с другими плагинами(WOOCS)
 				$conflict = new ConflictPluginsHelper();
@@ -309,6 +326,17 @@ class Base extends \WC_Shipping_Method
 		);
 
 		return $rate;
+	}
+
+	private function isValidBasicCalculationResponse( $response ): bool
+	{
+		if ( ! is_array( $response ) || empty( $response ) ) {
+			return false;
+		}
+
+		$type = $this->getType();
+
+		return isset( $response[ $type ] ) && is_array( $response[ $type ] ) && ! empty( $response[ $type ] );
 	}
 
 	public function calculate_shipping_frame($package){

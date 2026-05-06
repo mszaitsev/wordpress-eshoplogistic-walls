@@ -1,0 +1,236 @@
+eShopLogistic custom build review: 2.2.20-walls.0.2
+
+Changed files:
+- wc-eshop-logistic.php
+- Classes/Shipping/Base.php
+- assets/js/checkout.js
+- Modules/Unloading.php
+- views/unloading-form.php
+- review.txt
+
+What changed:
+- Updated plugin header Version and WC_ESL_VERSION to 2.2.20-walls.0.2.
+- Hardened checkout calculation transient handling in calculate_shipping_basic():
+  - invalid non-array cached values are deleted and recalculated;
+  - cached values without the current delivery type, or with non-array type payloads, are deleted and recalculated;
+  - invalid cache is logged as a debug event without address, customer, API key, or cache key data;
+  - empty, false, non-array, or structurally invalid calculation responses are not stored in transients;
+  - unexpected price shapes fall back to 0 instead of passing arrays/non-numeric values forward.
+- Hardened city search AJAX in assets/js/checkout.js:
+  - targets are normalized with normalize('NFC'), replaceAll('ё','е'), and trim();
+  - requests shorter than 2 normalized characters are skipped;
+  - duplicate target/currentCountry/typeFilter requests are not resent;
+  - previous in-flight jqXHR requests are aborted before new ones;
+  - stale responses are ignored;
+  - render callbacks only run for success === true and expected response data shape.
+- Stabilized unloading address parsing:
+  - getPartAddressNameDoor() always returns region, city, street, house, room keys;
+  - getPartAddressNameTerminal() always returns terminal and terminal_address keys;
+  - terminal_address falls back to trim($name) even if terminal code is absent.
+- Guarded unloading form reads that can be missing for old orders.
+
+Validation:
+- node --check assets/js/checkout.js: passed.
+- git diff --check: passed, with only CRLF conversion warnings from Git on Windows.
+- PHP lint was not run because php CLI is not installed or not available in PATH in this environment.
+
+Risks / manual testing:
+- Checkout delivery calculation should be tested with a stale/bad transient and with a normal fresh calculation.
+- City search should be tested with fast typing, repeated same query, ё/е input, modal region search, billing city search, and shipping city search.
+- Order unloading modal should be opened for old orders without saved ESL debug/address metadata and for terminal/door orders.
+- Delivery prices should be checked for services returning price as scalar and as { value: ... }.
+
+Diff summary:
+ Classes/Shipping/Base.php | 32 +++++++++++++++--
+ Modules/Unloading.php     | 24 ++++++-------
+ assets/js/checkout.js     | 89 ++++++++++++++++++++++++++++++++++++++++++-----
+ views/unloading-form.php  | 34 +++++++++---------
+ wc-eshop-logistic.php     |  4 +--
+
+Diff excerpts:
+
+diff --git a/wc-eshop-logistic.php b/wc-eshop-logistic.php
+--- a/wc-eshop-logistic.php
++++ b/wc-eshop-logistic.php
+@@
+- * Version:           2.2.20-walls.0.1
++ * Version:           2.2.20-walls.0.2
+@@
+-define( 'WC_ESL_VERSION', '2.2.20-walls.0.1' );
++define( 'WC_ESL_VERSION', '2.2.20-walls.0.2' );
+
+diff --git a/Classes/Shipping/Base.php b/Classes/Shipping/Base.php
+--- a/Classes/Shipping/Base.php
++++ b/Classes/Shipping/Base.php
+@@
+ 			$response = get_transient($cacheKey);
++			if ( false !== $response && ! $this->isValidBasicCalculationResponse( $response ) ) {
++				delete_transient($cacheKey);
++				$response = false;
++				$logger->debug(
++					'Invalid eShopLogistic checkout calculation cache ignored.',
++					array(
++						'source' => 'eshoplogisticru',
++						'type'   => $this->getType(),
++					)
++				);
++			}
+@@
+-				set_transient($cacheKey, $response, HOUR_IN_SECONDS);
++				if ( $this->isValidBasicCalculationResponse( $response ) ) {
++					set_transient($cacheKey, $response, HOUR_IN_SECONDS);
++				}
+@@
++				is_array($response) &&
+ 				isset($response[$this->getType()]) &&
++				is_array($response[$this->getType()]) &&
+@@
+-					$cost = isset($response[$this->getType()]['price']['value']) ? $response[$this->getType()]['price']['value'] : $cost;
++					$cost = isset($cost['value']) && is_numeric($cost['value']) ? $cost['value'] : 0;
++				if(!is_numeric($cost))
++					$cost = 0;
+@@
++	private function isValidBasicCalculationResponse( $response ): bool
++	{
++		if ( ! is_array( $response ) || empty( $response ) ) {
++			return false;
++		}
++
++		$type = $this->getType();
++
++		return isset( $response[ $type ] ) && is_array( $response[ $type ] ) && ! empty( $response[ $type ] );
++	}
+
+diff --git a/assets/js/checkout.js b/assets/js/checkout.js
+--- a/assets/js/checkout.js
++++ b/assets/js/checkout.js
+@@
++	let activeCitySearchXhr = null;
++	let activeCitySearchKey = '';
++	let lastCitySearchKey = '';
++	let lastCitySearchResponse = null;
++
++	function normalizeCityTarget( value ) {
++		value = value || '';
++		if( typeof value.normalize === 'function' ) {
++			value = value.normalize( 'NFC' );
++		}
++		return value.replaceAll( 'ё', 'е' ).trim();
++	}
++
++	function isExpectedCitySearchData( data, typeFilter ) {
++		if( typeFilter === 'region' ) {
++			return data !== null && typeof data === 'object' && !Array.isArray( data );
++		}
++		return Array.isArray( data );
++	}
+@@
+-		$.ajax({
++		target = normalizeCityTarget( target );
++		typeFilter = typeFilter || false;
++		if( target.length < 2 ) {
++			return;
++		}
++		let requestKey = JSON.stringify({
++			target,
++			currentCountry: currentCountry || '',
++			typeFilter
++		});
++		if( requestKey === lastCitySearchKey ) {
++			if(
++				lastCitySearchResponse &&
++				lastCitySearchResponse.success === true &&
++				isExpectedCitySearchData( lastCitySearchResponse.data, typeFilter )
++			) {
++				renderFunc( lastCitySearchResponse.data );
++			}
++			return;
++		}
++		if(
++			requestKey === activeCitySearchKey &&
++			activeCitySearchXhr &&
++			activeCitySearchXhr.readyState !== 4
++		) {
++			return;
++		}
++		if( activeCitySearchXhr && activeCitySearchXhr.readyState !== 4 ) {
++			activeCitySearchXhr.abort();
++		}
++		activeCitySearchKey = requestKey;
++		activeCitySearchXhr = $.ajax({
+@@
+-				if( response.success ) {
++				if( requestKey !== activeCitySearchKey ) {
++					return;
++				}
++				lastCitySearchKey = requestKey;
++				lastCitySearchResponse = response;
++				if(
++					response.success === true &&
++					isExpectedCitySearchData( response.data, typeFilter )
++				) {
+@@
+-				if (value.length > 1) {
++				let target = normalizeCityTarget( value );
++				if (target.length > 1) {
+@@
+-						searchCity(value, function (items) {
++						searchCity(target, function (items) {
+
+diff --git a/Modules/Unloading.php b/Modules/Unloading.php
+--- a/Modules/Unloading.php
++++ b/Modules/Unloading.php
+@@
+-        if (!$name) {
+-            return '';
+-        }
+-
+         $result = array(
+@@
++        if (!$name) {
++            return $result;
++        }
+@@
+-        if (!$name) {
+-            return array(
+-                'terminal' => '',
+-                'terminal_address' => '',
+-            );
+-        }
+-
+         $result = array(
+             'terminal' => '',
++            'terminal_address' => '',
+         );
+ 
++        if (!$name) {
++            return $result;
++        }
++
++        $result['terminal_address'] = trim($name);
+@@
+-                $result['terminal_address'] = trim($name);
+
+diff --git a/views/unloading-form.php b/views/unloading-form.php
+--- a/views/unloading-form.php
++++ b/views/unloading-form.php
+@@
+-    if($wc_esl_typeMethod['name'] == 'sdek' || $wc_esl_typeMethod['name'] == 'boxberry' || $wc_esl_typeMethod['name'] == 'postrf')
++    if(($wc_esl_typeMethod['name'] ?? '') == 'sdek' || ($wc_esl_typeMethod['name'] ?? '') == 'boxberry' || ($wc_esl_typeMethod['name'] ?? '') == 'postrf')
+@@
+-                                    <option value="door" <?php echo esc_attr($wc_esl_typeMethod['type'] === 'door' ? 'selected' : '') ?>>
++                                    <option value="door" <?php echo esc_attr(($wc_esl_typeMethod['type'] ?? '') === 'door' ? 'selected' : '') ?>>
+@@
+-                                       value="<?php echo esc_attr($wc_esl_orderData['shipping_total']); ?>">
++                                       value="<?php echo esc_attr($wc_esl_orderData['shipping_total'] ?? ''); ?>">
+@@
+-                                       value="<?php echo esc_attr($wc_esl_address['phone']) ?>">
++                                       value="<?php echo esc_attr($wc_esl_address['phone'] ?? '') ?>">
+@@
+-                                       value="<?php echo( esc_attr($wc_esl_shippingMethods['debug']['shipping_route']['to']['region']) ?? '' ) ?>">
++                                       value="<?php echo esc_attr($wc_esl_shippingMethods['debug']['shipping_route']['to']['region'] ?? '') ?>">
+@@
+-<input type="hidden" id="order_info_id" name="order_id" value="<?php echo esc_attr($wc_esl_orderData['id']) ?>">
+-<input type="hidden" id="order_info_type" name="order_type" value="<?php echo esc_attr($wc_esl_typeMethod['name']) ?>">
++<input type="hidden" id="order_info_id" name="order_id" value="<?php echo esc_attr($wc_esl_orderData['id'] ?? '') ?>">
++<input type="hidden" id="order_info_type" name="order_type" value="<?php echo esc_attr($wc_esl_typeMethod['name'] ?? '') ?>">

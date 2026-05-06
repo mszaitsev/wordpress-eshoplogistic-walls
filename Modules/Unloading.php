@@ -630,10 +630,6 @@ class Unloading implements ModuleInterface
 
     public function getPartAddressNameDoor($name)
     {
-        if (!$name) {
-            return '';
-        }
-
         $result = array(
             'region' => '',
             'city' => '',
@@ -641,6 +637,10 @@ class Unloading implements ModuleInterface
             'house' => '',
             'room' => '',
         );
+
+        if (!$name) {
+            return $result;
+        }
 
         $partExplode = explode(',', $name);
 
@@ -665,17 +665,16 @@ class Unloading implements ModuleInterface
 
     public function getPartAddressNameTerminal($name)
     {
-        if (!$name) {
-            return array(
-                'terminal' => '',
-                'terminal_address' => '',
-            );
-        }
-
         $result = array(
             'terminal' => '',
+            'terminal_address' => '',
         );
 
+        if (!$name) {
+            return $result;
+        }
+
+        $result['terminal_address'] = trim($name);
         $partExplode = explode(',', $name);
 
         foreach ($partExplode as $value) {
@@ -684,7 +683,6 @@ class Unloading implements ModuleInterface
                 if (isset($codePart[1])) {
                     $result['terminal'] = trim($codePart[1]);
                 }
-                $result['terminal_address'] = trim($name);
             }
         }
 

@@ -31,7 +31,7 @@ $wc_esl_room               = isset( $wc_esl_room ) ? $wc_esl_room : '';
 
 $wc_esl_fulfillment = false;
 if(isset($wc_esl_infoApi['services']['pochtalion'])){
-    if($wc_esl_typeMethod['name'] == 'sdek' || $wc_esl_typeMethod['name'] == 'boxberry' || $wc_esl_typeMethod['name'] == 'postrf')
+    if(($wc_esl_typeMethod['name'] ?? '') == 'sdek' || ($wc_esl_typeMethod['name'] ?? '') == 'boxberry' || ($wc_esl_typeMethod['name'] ?? '') == 'postrf')
 	    $wc_esl_fulfillment = $wc_esl_infoApi['services']['pochtalion'];
 }
 
@@ -90,10 +90,10 @@ $wc_esl_eslTable = new Table();
                             <div class="form-field">
                                 <label class="label">Тип доставки:</label>
                                 <select name="delivery_type" form="unloading_form" class="form-value">
-                                    <option value="door" <?php echo esc_attr($wc_esl_typeMethod['type'] === 'door' ? 'selected' : '') ?>>
+                                    <option value="door" <?php echo esc_attr(($wc_esl_typeMethod['type'] ?? '') === 'door' ? 'selected' : '') ?>>
                                         Курьер
                                     </option>
-                                    <option value="terminal" <?php echo esc_attr($wc_esl_typeMethod['type'] === 'terminal' ? 'selected' : '') ?>>
+                                    <option value="terminal" <?php echo esc_attr(($wc_esl_typeMethod['type'] ?? '') === 'terminal' ? 'selected' : '') ?>>
                                         Пункт самовывоза
                                     </option>
                                 </select>
@@ -124,7 +124,7 @@ $wc_esl_eslTable = new Table();
                             <div class="form-field">
                                 <label class="label" for="esl-unload-price">Стоимость доставки:</label>
                                 <input class="form-value" name="esl-unload-price" type="text"
-                                       value="<?php echo esc_attr($wc_esl_orderData['shipping_total']); ?>">
+                                       value="<?php echo esc_attr($wc_esl_orderData['shipping_total'] ?? ''); ?>">
                             </div>
 
                             <div class="form-field">
@@ -143,7 +143,7 @@ $wc_esl_eslTable = new Table();
 								$wc_esl_type = $wc_esl_explodeKey[1];
 								$wc_esl_nameRu = $wc_esl_explodeKey[2] ?? $wc_esl_name;
                                 $wc_esl_styleForm = '';
-                                $wc_esl_typeDelivery = mb_strtolower( $wc_esl_typeMethod['name']);
+                                $wc_esl_typeDelivery = mb_strtolower( $wc_esl_typeMethod['name'] ?? '');
                                 $wc_esl_nameFiledSaved = $wc_esl_nameArr.'['.$wc_esl_name.']';
 
                                 if($wc_esl_type === 'checkbox')
@@ -212,27 +212,27 @@ $wc_esl_eslTable = new Table();
                             <div class="form-field">
                                 <label class="label" for="receiver-name">Имя:</label>
                                 <input class="form-value" name="receiver-name" type="text"
-                                       value="<?php echo esc_attr($wc_esl_address['first_name']) . ' ' . esc_attr($wc_esl_address['last_name']) ?>">
+                                       value="<?php echo esc_attr($wc_esl_address['first_name'] ?? '') . ' ' . esc_attr($wc_esl_address['last_name'] ?? '') ?>">
                             </div>
                             <div class="form-field">
                                 <label class="label" for="receiver-phone">Телефон:</label>
                                 <input class="form-value" name="receiver-phone" type="text"
-                                       value="<?php echo esc_attr($wc_esl_address['phone']) ?>">
+                                       value="<?php echo esc_attr($wc_esl_address['phone'] ?? '') ?>">
                             </div>
                             <div class="form-field">
                                 <label class="label" for="receiver-email">Электронная почта:</label>
                                 <input class="form-value" name="receiver-email" type="text"
-                                       value="<?php echo esc_attr($wc_esl_address['email']) ?>">
+                                       value="<?php echo esc_attr($wc_esl_address['email'] ?? '') ?>">
                             </div>
                             <div class="form-field">
                                 <label class="label" for="receiver-region">Регион:</label>
                                 <input class="form-value" name="receiver-region" type="text"
-                                       value="<?php echo( esc_attr($wc_esl_shippingMethods['debug']['shipping_route']['to']['region']) ?? '' ) ?>">
+                                       value="<?php echo esc_attr($wc_esl_shippingMethods['debug']['shipping_route']['to']['region'] ?? '') ?>">
                             </div>
                             <div class="form-field">
                                 <label class="label" for="receiver-city">Населённый пункт:</label>
                                 <input class="form-value" name="receiver-city" type="text"
-                                       value="<?php echo esc_attr($wc_esl_address['city']) ?>">
+                                       value="<?php echo esc_attr($wc_esl_address['city'] ?? '') ?>">
                             </div>
                             <div class="form-field">
                                 <label class="label" for="receiver-street">Улица:</label>
@@ -273,16 +273,16 @@ $wc_esl_eslTable = new Table();
                             <div class="form-field">
                                 <label class="label">Способ доставки до терминала ТК:</label>
                                 <select name="pick_up" form="unloading_form" class="form-value">
-                                    <?php if($wc_esl_typeMethod['name'] != 'halva'): ?>
-                                    <option value="0" <?php echo ( isset( $wc_esl_addFieldSaved[$wc_esl_typeMethod['name']]['pick_up'] ) && $wc_esl_addFieldSaved[$wc_esl_typeMethod['name']]['pick_up']  == 0 ) ? 'selected' : ''?>>Сами привезём на терминал транспортной компании</option>
+                                    <?php if(($wc_esl_typeMethod['name'] ?? '') != 'halva'): ?>
+                                    <option value="0" <?php echo ( isset( $wc_esl_addFieldSaved[$wc_esl_typeMethod['name'] ?? '']['pick_up'] ) && $wc_esl_addFieldSaved[$wc_esl_typeMethod['name'] ?? '']['pick_up']  == 0 ) ? 'selected' : ''?>>Сами привезём на терминал транспортной компании</option>
                                     <?php endif; ?>
-                                    <option value="1" <?php echo ( isset( $wc_esl_addFieldSaved[$wc_esl_typeMethod['name']]['pick_up'] ) && $wc_esl_addFieldSaved[$wc_esl_typeMethod['name']]['pick_up']  == 1 ) ? 'selected' : ''?>>Груз заберёт транспортная компания</option>
+                                    <option value="1" <?php echo ( isset( $wc_esl_addFieldSaved[$wc_esl_typeMethod['name'] ?? '']['pick_up'] ) && $wc_esl_addFieldSaved[$wc_esl_typeMethod['name'] ?? '']['pick_up']  == 1 ) ? 'selected' : ''?>>Груз заберёт транспортная компания</option>
                                 </select>
                             </div>
                             <div class="form-field">
                                 <label class="label" for="sender-terminal">Код терминала:</label>
                                 <input class="form-value" name="sender-terminal" type="text"
-                                       value="<?php echo ( isset( $wc_esl_exportFormSettings[ 'sender-terminal-' . $wc_esl_typeMethod['name'] ] ) ) ? esc_attr($wc_esl_exportFormSettings[ 'sender-terminal-' . $wc_esl_typeMethod['name'] ]) : '' ?>">
+                                       value="<?php echo ( isset( $wc_esl_exportFormSettings[ 'sender-terminal-' . ($wc_esl_typeMethod['name'] ?? '') ] ) ) ? esc_attr($wc_esl_exportFormSettings[ 'sender-terminal-' . ($wc_esl_typeMethod['name'] ?? '') ]) : '' ?>">
                             </div>
                             <div class="form-field">
                                 <label class="label" for="sender-region">Регион:</label>
@@ -329,7 +329,7 @@ $wc_esl_eslTable = new Table();
 										if(!isset($wc_esl_v['name']))
 											continue;
 
-                                        $wc_esl_type = mb_strtolower( $wc_esl_typeMethod['name']);
+                                        $wc_esl_type = mb_strtolower( $wc_esl_typeMethod['name'] ?? '');
 										$wc_esl_valueSaved = '0';
 										if(isset($wc_esl_addFieldSaved[$wc_esl_type][$wc_esl_k]) && $wc_esl_addFieldSaved[$wc_esl_type][$wc_esl_k] != '0'){
 											$wc_esl_valueSaved = $wc_esl_addFieldSaved[$wc_esl_type][$wc_esl_k];
@@ -383,5 +383,5 @@ $wc_esl_eslTable = new Table();
     </div>
 </div>
 
-<input type="hidden" id="order_info_id" name="order_id" value="<?php echo esc_attr($wc_esl_orderData['id']) ?>">
-<input type="hidden" id="order_info_type" name="order_type" value="<?php echo esc_attr($wc_esl_typeMethod['name']) ?>">
+<input type="hidden" id="order_info_id" name="order_id" value="<?php echo esc_attr($wc_esl_orderData['id'] ?? '') ?>">
+<input type="hidden" id="order_info_type" name="order_type" value="<?php echo esc_attr($wc_esl_typeMethod['name'] ?? '') ?>">

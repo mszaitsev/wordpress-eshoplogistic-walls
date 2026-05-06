@@ -64,8 +64,69 @@
 		}
 	}
 
+	let activeCitySearchXhr = null;
+	let activeCitySearchKey = '';
+	let lastCitySearchKey = '';
+	let lastCitySearchResponse = null;
+
+	function normalizeCityTarget( value ) {
+		value = value || '';
+
+		if( typeof value.normalize === 'function' ) {
+			value = value.normalize( 'NFC' );
+		}
+
+		return value.replaceAll( 'ё', 'е' ).trim();
+	}
+
+	function isExpectedCitySearchData( data, typeFilter ) {
+		if( typeFilter === 'region' ) {
+			return data !== null && typeof data === 'object' && !Array.isArray( data );
+		}
+
+		return Array.isArray( data );
+	}
+
 	function searchCity( target, renderFunc, currentCountry, typeFilter = false ) {
-		$.ajax({
+		target = normalizeCityTarget( target );
+		typeFilter = typeFilter || false;
+
+		if( target.length < 2 ) {
+			return;
+		}
+
+		let requestKey = JSON.stringify({
+			target,
+			currentCountry: currentCountry || '',
+			typeFilter
+		});
+
+		if( requestKey === lastCitySearchKey ) {
+			if(
+				lastCitySearchResponse &&
+				lastCitySearchResponse.success === true &&
+				isExpectedCitySearchData( lastCitySearchResponse.data, typeFilter )
+			) {
+				renderFunc( lastCitySearchResponse.data );
+			}
+
+			return;
+		}
+
+		if(
+			requestKey === activeCitySearchKey &&
+			activeCitySearchXhr &&
+			activeCitySearchXhr.readyState !== 4
+		) {
+			return;
+		}
+
+		if( activeCitySearchXhr && activeCitySearchXhr.readyState !== 4 ) {
+			activeCitySearchXhr.abort();
+		}
+
+		activeCitySearchKey = requestKey;
+		activeCitySearchXhr = $.ajax({
 			method: 'POST',
 			url: wc_esl_shipping_global.ajaxUrl,
 			async: true,
@@ -77,8 +138,17 @@
 			},
 			dataType: 'json',
 			success: function( response ) {
+				if( requestKey !== activeCitySearchKey ) {
+					return;
+				}
 
-				if( response.success ) {
+				lastCitySearchKey = requestKey;
+				lastCitySearchResponse = response;
+
+				if(
+					response.success === true &&
+					isExpectedCitySearchData( response.data, typeFilter )
+				) {
 					renderFunc( response.data );
 				}
 			}
@@ -360,14 +430,15 @@
 			let inputSearch = '';
 			$('body').on('keyup changed', '#esl_modal-search', function (e) {
 				let value = $(this).val();
+				let target = normalizeCityTarget( value );
 
 				let $this = $(this);
 				let modeInput = $this.attr('data-mode');
 				inputSearch = $(this);
 
-				if (value.length > 1) {
+				if (target.length > 1) {
 					if (currentBillingCountry) {
-						searchCity(value, function (items) {
+						searchCity(target, function (items) {
 							if(Object.getOwnPropertyNames(items).length >= 1) {
 								$this.next('#esl_result-search').html(
 									renderCitiesModal(items, modeInput)
@@ -449,13 +520,14 @@
 
 				$( 'body' ).on( 'keyup focus', '#'+$name, function( e ) {
 					let value = $( this ).val();
+					let target = normalizeCityTarget( value );
 					let mode = 'billing';
 					let $this = $( this );
 
-					if( value.length > 2 ) {
+					if( target.length > 1 ) {
 
 						if( currentBillingCountry ) {
-							searchCity( value, function( items ) {
+							searchCity( target, function( items ) {
 								$('#result_wc_esl_search_city_billing').remove();
 								if($this.parents( '.cfw-input-wrap-row' ).length === 1){
 									$this.parents( '.cfw-input-wrap-row' ).append(
@@ -533,13 +605,14 @@
 
 		$( 'body' ).on( 'keyup focus', '#'+shippingCityFields, function( e ) {
 			let value = $( this ).val();
+			let target = normalizeCityTarget( value );
 			let mode = 'shipping';
 			let $this = $( this );
 
-			if( value.length > 2 ) {
+			if( target.length > 1 ) {
 
 				if( currentBillingCountry ) {
-					searchCity( value, function( items ) {
+					searchCity( target, function( items ) {
 						$('#result_wc_esl_search_city_shipping').remove();
 						if($this.parents( '.cfw-input-wrap-row' ).length === 1){
 							$this.parents('.cfw-input-wrap-row' ).append(
