@@ -155,11 +155,20 @@ class EshopLogisticApi
 			if($this->eslLog == '1'){
 				$this->eslWriteLog( $response, $data );
 			}
-			if ( isset($response['success']) && $response['success'] || ($response['http_status'] == 200) ) {
-				if(isset($response['debug']))
-					$response['data']['debug'] = $response['debug'];
+			if (!is_array($response)) {
+				return new ErrorResponse( array( 'errors' => array( 'Некорректный ответ API eShopLogistic' ) ) );
+			}
 
-				return new CollectionResponse( $response['data'] );
+			$isSuccess = (isset($response['success']) && $response['success'] === true) || (isset($response['http_status']) && (int) $response['http_status'] === 200);
+			if ( $isSuccess ) {
+				if(isset($response['debug'])) {
+					if (!isset($response['data']) || !is_array($response['data'])) {
+						$response['data'] = array();
+					}
+					$response['data']['debug'] = $response['debug'];
+				}
+
+				return new CollectionResponse( isset($response['data']) && is_array($response['data']) ? $response['data'] : array() );
 			}
 
 			return new ErrorResponse( $response );
@@ -187,7 +196,16 @@ class EshopLogisticApi
 			$data
 		);
 
-		return json_decode( $result, true );
+		if ($result === null || $result === '') {
+			throw new ApiServiceException('Пустой ответ API eShopLogistic');
+		}
+
+		$response = json_decode( $result, true );
+		if (!is_array($response)) {
+			throw new ApiServiceException('Некорректный JSON ответ API eShopLogistic');
+		}
+
+		return $response;
 	}
 
 	/**
@@ -271,11 +289,15 @@ class EshopLogisticApi
 		try {
 			$response = $this->sendRequest( $data );
 
-			if ( $response['http_status'] == 200 && isset($response['data']['state']['number'])) {
+			if (!is_array($response)) {
+				return new ErrorResponse( array( 'errors' => array( 'Некорректный ответ API eShopLogistic' ) ) );
+			}
+
+			if ( isset($response['http_status']) && (int) $response['http_status'] === 200 && isset($response['data']['state']['number'])) {
 				return new CollectionResponse( $response['data'] );
 			}
 
-			if(isset($response['data']['state']['errors']))
+			if(isset($response['data']) && is_array($response['data']) && isset($response['data']['state']) && is_array($response['data']['state']) && isset($response['data']['state']['errors']))
 				$response['errors'] = $response['data']['state']['errors'];
 
 			return new ErrorResponse( $response );
