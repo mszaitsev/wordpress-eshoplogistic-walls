@@ -287,6 +287,8 @@ class Base extends \WC_Shipping_Method
 				if(isset($response['comments']) && is_string($response['comments'])) {
 					$shippingMethods[$this->id]['comments'] = ($shippingMethods[$this->id]['comments'])?$shippingMethods[$this->id]['comments'].' '.$response['comments']:$response['comments'];
 				}
+
+				$shippingMethods[$this->id] = $this->applyWallsShippingTimeOverrides($shippingMethods[$this->id], $service, $cityName);
 			} else {
 				unset($shippingMethods[$this->id]);
 			}
@@ -326,6 +328,19 @@ class Base extends \WC_Shipping_Method
 		);
 
 		return $rate;
+	}
+
+	private function applyWallsShippingTimeOverrides(array $methodData, string $service, string $cityName): array
+	{
+		$cityName = trim($cityName);
+		$cityName = function_exists('mb_strtolower') ? mb_strtolower($cityName) : strtolower($cityName);
+
+		if ($service === 'postrf' && $cityName === 'новосибирск') {
+			$methodData['time']['value'] = 3;
+			$methodData['time']['unit'] = 'дн.';
+		}
+
+		return $methodData;
 	}
 
 	private function isValidBasicCalculationResponse( $response ): bool
