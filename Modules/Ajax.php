@@ -40,6 +40,9 @@ class Ajax implements ModuleInterface
 		add_action('wp_ajax_nopriv_wc_esl_set_terminal_address', [$this, 'setTerminalAddress']);
 		add_action('wp_ajax_wc_esl_set_terminal_address', [$this, 'setTerminalAddress']);
 
+		add_action('wp_ajax_nopriv_wc_esl_reset_terminal_address', [$this, 'resetTerminalAddress']);
+		add_action('wp_ajax_wc_esl_reset_terminal_address', [$this, 'resetTerminalAddress']);
+
 		add_action('wp_ajax_nopriv_wc_esl_reset_shipping_address', [$this, 'resetShippingAddress']);
 		add_action('wp_ajax_wc_esl_reset_shipping_address', [$this, 'resetShippingAddress']);
 
@@ -508,6 +511,10 @@ class Ajax implements ModuleInterface
 		$sessionController = new SessionController();
 		$response = $sessionController->saveShippingAddress($request);
 
+		$sessionService = new SessionService();
+		$sessionService->drop('terminal_location');
+		$sessionService->drop('shipping_methods');
+
 		$response->send();
 	}
 
@@ -639,6 +646,39 @@ class Ajax implements ModuleInterface
 			'success' => true,
 			'data' => $terminal . '. Код пункта: ' . $terminal_code,
 			'msg' => __("Aдрес пункта выдачи успешно сохранён", 'eshoplogisticru')
+		]);
+	}
+
+	public function resetTerminalAddress()
+	{
+		// phpcs:ignore WordPress.Security.NonceVerification.Missing -- Public AJAX endpoint for checkout session cleanup.
+		$sessionService = new SessionService();
+		$sessionService->drop('terminal_location');
+
+		$shippingMethods = $sessionService->get('shipping_methods');
+		if (is_array($shippingMethods)) {
+			foreach ($shippingMethods as $methodId => $methodData) {
+				if (!is_array($methodData)) {
+					continue;
+				}
+
+				unset(
+					$methodData['terminal'],
+					$methodData['terminal_address'],
+					$methodData['terminal_location'],
+					$methodData['selected_terminal']
+				);
+
+				$shippingMethods[$methodId] = $methodData;
+			}
+
+			$sessionService->set('shipping_methods', $shippingMethods);
+		}
+
+		wp_send_json([
+			'success' => true,
+			'data' => [],
+			'msg' => ''
 		]);
 	}
 

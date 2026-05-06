@@ -68,6 +68,8 @@
 	let activeCitySearchKey = '';
 	let lastCitySearchKey = '';
 	let lastCitySearchResponse = null;
+	let activeUpdateShippingAddressXhr = null;
+	let activeUpdateShippingAddressKey = '';
 
 	function normalizeCityTarget( value ) {
 		value = value || '';
@@ -85,6 +87,33 @@
 		}
 
 		return Array.isArray( data );
+	}
+
+	function resetTerminalSelection( mode ) {
+		$( '#wc_esl_billing_terminal, #wc_esl_shipping_terminal, #wcEslTerminals' ).val( '' );
+		$( '.wc-esl-terminals__button' ).text( 'Выбрать пункт выдачи' );
+		$( '.wc-esl-terminals__container' ).hide().removeClass( 'show' );
+
+		if( mode ) {
+			$( `#wc-esl-terminals-wrap-${mode}` ).hide().removeClass( 'show' );
+		}
+	}
+
+	function resetTerminalAddressOnServer( completeCallback ) {
+		$.ajax({
+			method: 'POST',
+			url: wc_esl_shipping_global.ajaxUrl,
+			async: true,
+			data: {
+				action : 'wc_esl_reset_terminal_address'
+			},
+			dataType: 'json',
+			complete: function() {
+				if( typeof completeCallback === 'function' ) {
+					completeCallback();
+				}
+			}
+		});
 	}
 
 	function searchCity( target, renderFunc, currentCountry, typeFilter = false ) {
@@ -565,11 +594,23 @@
 			if(mode === 'shipping')
 				adress = addCityAdressShipping;
 
+			let updateShippingAddressKey = JSON.stringify({
+				mode,
+				fias: fias || '',
+				city: city || ''
+			});
+
+			resetTerminalSelection(mode);
 			preload( `.woocommerce-${mode}-fields` );
 
 			$( '.wc-esl-search-city__list' ).hide();
 
-			$.ajax({
+			if( activeUpdateShippingAddressXhr && activeUpdateShippingAddressXhr.readyState !== 4 ) {
+				activeUpdateShippingAddressXhr.abort();
+			}
+
+			activeUpdateShippingAddressKey = updateShippingAddressKey;
+			activeUpdateShippingAddressXhr = $.ajax({
 				method: 'POST',
 				url: wc_esl_shipping_global.ajaxUrl,
 				async: true,
@@ -585,20 +626,22 @@
 				},
 				dataType: 'json',
 				success: function( response ) {
+					if( updateShippingAddressKey !== activeUpdateShippingAddressKey ) {
+						return;
+					}
 
-					if( response.success ) {
+					if( response.success === true ) {
 
 						$( `#${mode}_city` ).val( city );
 						$( `#${mode}_state` ).val( region );
 						$( `#${mode}_postcode` ).val( postcode );
 
-						$( `#wc_esl_${mode}_terminal` ).val( '' );
-						//$(`.wc-esl-terminals__button[data-mode="${mode}"]`).text("╨Т╤Л╨▒╤А╨░╤В╤М ╨┐╤Г╨╜╨║╤В ╨▓╤Л╨┤╨░╤З╨╕");
-
-						preload( `.woocommerce-${mode}-fields`, false );
+						resetTerminalSelection(mode);
+						$( 'body' ).trigger( 'update_checkout' );
 					}
-
-					$( 'body' ).trigger( 'update_checkout' );
+				},
+				complete: function() {
+					preload( `.woocommerce-${mode}-fields`, false );
 				}
 			});
 		}
@@ -670,10 +713,14 @@
 			'change',
 			'select.shipping_method, :input[name^=shipping_method]',
 			function ( e ){
-				$('#wc_esl_billing_terminal').val('');
+				resetTerminalSelection('billing');
+				resetTerminalSelection('shipping');
 				currentShippingMethod 	= shippingFieldName( this );
 				shippingMethodIsEshop 	= shippingMethodIsEshopFunc( currentShippingMethod );
 				typeShippingMethod 		= shippingMethodTypeFunc( currentShippingMethod );
+				resetTerminalAddressOnServer(function() {
+					$( 'body' ).trigger( 'update_checkout' );
+				});
 			}
 		);
 
