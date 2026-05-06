@@ -33,14 +33,22 @@ class OfferData implements OfferInterface
 		$productId = $this->get('product_id');
 		$variationId = $this->get('variation_id');
 
-		if($variationId !== 0) return $variationId;
+		if($variationId) return $variationId;
 
 		return $productId;
 	}
 
 	public function getName()
 	{
-		return $this->product->get_title();
+		if ($this->hasProduct()) {
+			return $this->product->get_title();
+		}
+
+		if (isset($this->data['name']) && is_string($this->data['name'])) {
+			return $this->data['name'];
+		}
+
+		return '';
 	}
 
 	public function getQuantity()
@@ -58,16 +66,23 @@ class OfferData implements OfferInterface
 		$lineTotal = $this->get('line_total');
 		$count = $this->getQuantity();
 
+		if($count <= 0)
+			return 0;
+
 		return $lineTotal / $count;
 	}
 
 	public function getPrice()
 	{
-		return apply_filters('wc_esl_offer_data_price', $this->product->get_price());
+		return apply_filters('wc_esl_offer_data_price', $this->hasProduct() ? $this->product->get_price() : 0);
 	}
 
 	public function getWeight()
 	{
+		if (!$this->hasProduct()) {
+			return 0;
+		}
+
 		// * intval($this->get('quantity'))
 		$weight = $this->prepareWeight($this->product->get_weight());
 		$result = round(
@@ -84,6 +99,10 @@ class OfferData implements OfferInterface
 
 	public function getLength()
 	{
+		if (!$this->hasProduct()) {
+			return 0;
+		}
+
 		return round(
 			floatval(
 				$this->prepareDimensionsInEsl($this->product->get_length())
@@ -94,6 +113,10 @@ class OfferData implements OfferInterface
 
 	public function getWidth()
 	{
+		if (!$this->hasProduct()) {
+			return 0;
+		}
+
 		return round(
 			floatval(
 				$this->prepareDimensionsInEsl($this->product->get_width())
@@ -104,6 +127,10 @@ class OfferData implements OfferInterface
 
 	public function getHeight()
 	{
+		if (!$this->hasProduct()) {
+			return 0;
+		}
+
 		return round(
 			floatval(
 				$this->prepareDimensionsInEsl($this->product->get_height())
@@ -209,9 +236,14 @@ class OfferData implements OfferInterface
 	}
 
 
+	private function hasProduct()
+	{
+		return is_object($this->product) && $this->product instanceof \WC_Product;
+	}
+
 	private function get($key)
 	{
-		if(!isset($this->data[$key])) throw new \Exception(esc_html("Значение с таким ключом не найдено", 'eshoplogisticru'));
+		if(!isset($this->data[$key])) return null;
 
 		return $this->data[$key];
 	}
