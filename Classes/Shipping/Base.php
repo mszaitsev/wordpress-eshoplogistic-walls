@@ -337,7 +337,7 @@ class Base extends \WC_Shipping_Method
 
 		if ($service === 'postrf' && $cityName === 'новосибирск') {
 			$methodData['time']['value'] = 3;
-			$methodData['time']['unit'] = 'дн.';
+			$methodData['time']['unit'] = 'дня';
 		}
 
 		return $methodData;
