@@ -76,7 +76,7 @@
 			value = value.normalize( 'NFC' );
 		}
 
-		return value.replaceAll( 'ё', 'е' ).trim();
+		return value.replace( /ё/g, 'е' ).replace( /Ё/g, 'Е' ).trim();
 	}
 
 	function isExpectedCitySearchData( data, typeFilter ) {
@@ -192,7 +192,7 @@
 	}
 
 	function renderCitiesModal(items, mode = 'billing') {
-		if (items.length < 1) return '';
+		if (Object.keys(items).length < 1) return '';
 
 		let html = `<ul
 			class="wc-esl-search-city-modal__list"
