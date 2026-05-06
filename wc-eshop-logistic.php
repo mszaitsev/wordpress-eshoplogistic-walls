@@ -12,7 +12,7 @@
  * Plugin Name:       eShopLogistic Shipping Calculator
  * Plugin URI:        https://wp.eshoplogistic.ru/
  * Description:       Integration with eShopLogistic service for shipping calculation with multiple carriers: CDEK, DPD, Boxberry, IML, Post Russia, Delovye Linii, PEC, Dostavista, GTD, Baikal Service and others. Calculates delivery cost and time in cart and product card.
- * Version:           2.2.20-walls.0.8
+ * Version:           2.2.20-walls.0.9
  * Author:            eShopLogistic
  * Author URI:        https://eshoplogistic.ru/p747575
  * License:           GPL-2.0+
@@ -41,7 +41,7 @@ define( 'WC_ESL_PLUGIN_ENTRY', __FILE__ );
 
 define( 'WC_ESL_PLUGIN_DIR', plugin_dir_path(__FILE__) );
 
-define( 'WC_ESL_VERSION', '2.2.20-walls.0.8' );
+define( 'WC_ESL_VERSION', '2.2.20-walls.0.9' );
 
 define( 'WC_ESL_DOMAIN', 'eshoplogisticru' );
 

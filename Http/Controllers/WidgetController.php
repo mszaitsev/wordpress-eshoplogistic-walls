@@ -20,7 +20,7 @@ class WidgetController extends Controller {
 
 		if ( ! empty( $method ) ) {
 			// phpcs:ignore WordPress.Security.NonceVerification.Missing -- REST API endpoint, nonce not required
-			$query_data = @$_POST;
+			$query_data = isset($_POST) && is_array($_POST) ? wp_unslash($_POST) : [];
 			unset( $query_data['method'] );
 			$cache_key  = md5( $method . json_encode( $query_data ) );
 			$cache_data = get_transient( $cache_key );
@@ -31,7 +31,7 @@ class WidgetController extends Controller {
 				$raw = ( $method == 'widget/send' ) ? $request->get_param( 'raw' ) : '';
 
 				if ( $request = $this->ApiQuery( trim( $method ), $query_data, $raw ) ) {
-					if ( ! empty( $request ) && $request['http_status'] == 200 ) {
+					if ( is_array( $request ) && ! empty( $request ) && isset( $request['http_status'] ) && $request['http_status'] == 200 ) {
 						set_transient( $cache_key, $request, HOUR_IN_SECONDS );
 					}
 					$out = $request;
@@ -84,7 +84,15 @@ class WidgetController extends Controller {
 					'Content-Type: application/json'
 				] );
 			} elseif ( $method == 'widget/calculation' ) {
-				$encoded        = json_decode( stripslashes( $data['offers'] ) );
+				if ( empty( $data['offers'] ) ) {
+					curl_close( $curl );
+					return false;
+				}
+				$encoded = json_decode( stripslashes( $data['offers'] ) );
+				if ( $encoded === null && json_last_error() !== JSON_ERROR_NONE ) {
+					curl_close( $curl );
+					return false;
+				}
 				$data['offers'] = json_encode( $encoded );
 				$data['debug']  = 1;
 				$calculation    = true;
@@ -115,28 +123,37 @@ class WidgetController extends Controller {
 		curl_close( $curl );
 		// phpcs:enable WordPress.WP.AlternativeFunctions
 
-		if ( $result = json_decode( $result, 1 ) ) {
-			if ( is_array( $result ) ) {
+		if ( $result === false || $result === '' ) {
+			return false;
+		}
+
+		$result = json_decode( $result, 1 );
+		if ( ! is_array( $result ) ) {
+			return false;
+		}
+
+		if ( is_array( $result ) ) {
 
 				if ( $calculation && isset( $result['debug'] ) ) {
-					if(isset($result['data']['terminal']['price']['value']) && !is_int($result['data']['terminal']['price']['value'])){
+					if(isset($result['data']) && is_array($result['data']) && isset($result['data']['terminal']) && is_array($result['data']['terminal']) && isset($result['data']['terminal']['price']['value']) && !is_int($result['data']['terminal']['price']['value'])){
 						$result['data']['terminal']['price']['value'] = (int)$result['data']['terminal']['price']['value'];
 					}
-					if(isset($result['data']['door']['price']['value']) && !is_int($result['data']['door']['price']['value'])){
+					if(isset($result['data']) && is_array($result['data']) && isset($result['data']['door']) && is_array($result['data']['door']) && isset($result['data']['door']['price']['value']) && !is_int($result['data']['door']['price']['value'])){
 						$result['data']['door']['price']['value'] = (int)$result['data']['door']['price']['value'];
 					}
-					$keyWidget = explode( ':', $data['key'] );
-					$cacheJson = array(
-						'city' => $data['to'],
-						'key'  => $keyWidget[0],
-						'service' => $data['service']
-					);
-					$cache_key = md5( $method . json_encode( $cacheJson ) );
-					set_transient( $cache_key, $result, HOUR_IN_SECONDS );
+					if ( isset( $data['key'], $data['to'], $data['service'] ) ) {
+						$keyWidget = explode( ':', $data['key'] );
+						$cacheJson = array(
+							'city' => $data['to'],
+							'key'  => $keyWidget[0],
+							'service' => $data['service']
+						);
+						$cache_key = md5( $method . json_encode( $cacheJson ) );
+						set_transient( $cache_key, $result, HOUR_IN_SECONDS );
+					}
 				}
 
 				return $result;
-			}
 		}
 
 		return false;
