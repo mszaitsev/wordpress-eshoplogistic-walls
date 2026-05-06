@@ -5,6 +5,7 @@ namespace eshoplogistic\WCEshopLogistic\Services;
 use eshoplogistic\WCEshopLogistic\Contracts\OrderDataInterface;
 use eshoplogistic\WCEshopLogistic\Contracts\OfferInterface;
 use eshoplogistic\WCEshopLogistic\Api\EshopLogisticApi;
+use eshoplogistic\WCEshopLogistic\DB\OptionsRepository;
 use eshoplogistic\WCEshopLogistic\Http\WpHttpClient;
 
 if ( ! defined('ABSPATH') ) {
@@ -43,15 +44,19 @@ class CalculationService
 			$cityTo = $cityName.' '.$adress;
 		}
 
-        $logger = new \WC_Logger();
-        $payload = [
-            'service' => $service,
-            'from' => $cityFrom,
-            'to' => $cityTo,
-            'payment' => $payment,
-            'offers' => $offers,
-        ];
-        $logger->debug( wp_json_encode( $payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES ) );
+        $optionsRepository = new OptionsRepository();
+        $loggingEnabled = $optionsRepository->getOption('wc_esl_shipping_plugin_enable_log');
+        if ($loggingEnabled === '1' || $loggingEnabled === 1 || $loggingEnabled === true) {
+            $logger = new \WC_Logger();
+            $payload = [
+                'service' => $service,
+                'from' => $cityFrom,
+                'to' => $cityTo,
+                'payment' => $payment,
+                'offers' => $offers,
+            ];
+            $logger->debug( wp_json_encode( $payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES ) );
+        }
 
         $response = $this->api->calculateDelivery($service, [
             'from' => $cityFrom,
