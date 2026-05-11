@@ -83,7 +83,7 @@
 
 	function isExpectedCitySearchData( data, typeFilter ) {
 		if( typeFilter === 'region' ) {
-			return data !== null && typeof data === 'object' && !Array.isArray( data );
+			return ( data !== null && typeof data === 'object' && !Array.isArray( data ) ) || ( Array.isArray( data ) && data.length === 0 );
 		}
 
 		return Array.isArray( data );
@@ -136,6 +136,10 @@
 				lastCitySearchResponse.success === true &&
 				isExpectedCitySearchData( lastCitySearchResponse.data, typeFilter )
 			) {
+				if( typeFilter === 'region' && Array.isArray( lastCitySearchResponse.data ) && lastCitySearchResponse.data.length === 0 ) {
+					renderFunc( {} );
+					return;
+				}
 				renderFunc( lastCitySearchResponse.data );
 			}
 
@@ -178,6 +182,10 @@
 					response.success === true &&
 					isExpectedCitySearchData( response.data, typeFilter )
 				) {
+					if( typeFilter === 'region' && Array.isArray( response.data ) && response.data.length === 0 ) {
+						renderFunc( {} );
+						return;
+					}
 					renderFunc( response.data );
 				}
 			}
@@ -473,7 +481,7 @@
 									renderCitiesModal(items, modeInput)
 								);
 							}else{
-								$this.next('#esl_result-search').html('<button id="esl_modal_button-search">╨Т╤Л╨▒╤А╨░╤В╤М ╨┤╨░╨╜╨╜╤Л╨╣ ╨╜╨░╤Б╨╡╨╗╤С╨╜╨╜╤Л╨╣ ╨┐╤Г╨╜╨║╤В</button>');
+								$this.next('#esl_result-search').html('<button id="esl_modal_button-search">Выбрать данный населённый пункт</button>');
 							}
 						}, currentBillingCountry, 'region');
 					}
