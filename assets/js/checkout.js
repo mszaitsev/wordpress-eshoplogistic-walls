@@ -83,10 +83,40 @@
 
 	function isExpectedCitySearchData( data, typeFilter ) {
 		if( typeFilter === 'region' ) {
-			return ( data !== null && typeof data === 'object' && !Array.isArray( data ) ) || ( Array.isArray( data ) && data.length === 0 );
+			return normalizeRegionCitySearchData( data ) !== null;
 		}
 
 		return Array.isArray( data );
+	}
+
+	function normalizeRegionCitySearchData( data ) {
+		if( Array.isArray( data ) ) {
+			if( data.length === 0 ) {
+				return {};
+			}
+
+			let grouped = {};
+			data.forEach( function( item ) {
+				if( !item || typeof item !== 'object' ) {
+					return;
+				}
+
+				let region = item.region || '';
+				if( !grouped[region] ) {
+					grouped[region] = [];
+				}
+
+				grouped[region].push( item );
+			});
+
+			return grouped;
+		}
+
+		if( data !== null && typeof data === 'object' ) {
+			return data;
+		}
+
+		return null;
 	}
 
 	function resetTerminalSelection( mode ) {
@@ -131,15 +161,19 @@
 		});
 
 		if( requestKey === lastCitySearchKey ) {
-			if(
-				lastCitySearchResponse &&
-				lastCitySearchResponse.success === true &&
-				isExpectedCitySearchData( lastCitySearchResponse.data, typeFilter )
-			) {
-				if( typeFilter === 'region' && Array.isArray( lastCitySearchResponse.data ) && lastCitySearchResponse.data.length === 0 ) {
-					renderFunc( {} );
+			if( lastCitySearchResponse && lastCitySearchResponse.success === true ) {
+				if( typeFilter === 'region' ) {
+					let normalizedData = normalizeRegionCitySearchData( lastCitySearchResponse.data );
+					if( normalizedData !== null ) {
+						renderFunc( normalizedData );
+					}
 					return;
 				}
+
+				if( !isExpectedCitySearchData( lastCitySearchResponse.data, typeFilter ) ) {
+					return;
+				}
+
 				renderFunc( lastCitySearchResponse.data );
 			}
 
@@ -178,14 +212,19 @@
 				lastCitySearchKey = requestKey;
 				lastCitySearchResponse = response;
 
-				if(
-					response.success === true &&
-					isExpectedCitySearchData( response.data, typeFilter )
-				) {
-					if( typeFilter === 'region' && Array.isArray( response.data ) && response.data.length === 0 ) {
-						renderFunc( {} );
+				if( response.success === true ) {
+					if( typeFilter === 'region' ) {
+						let normalizedData = normalizeRegionCitySearchData( response.data );
+						if( normalizedData !== null ) {
+							renderFunc( normalizedData );
+						}
 						return;
 					}
+
+					if( !isExpectedCitySearchData( response.data, typeFilter ) ) {
+						return;
+					}
+
 					renderFunc( response.data );
 				}
 			}
