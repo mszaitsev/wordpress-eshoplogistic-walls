@@ -235,9 +235,8 @@ class ExportFileds {
 		}
 		if ( $name === 'sdek' ) {
 			$eshopLogisticApi = new EshopLogisticApi( new WpHttpClient() );
-			$tariffs          = $eshopLogisticApi->apiServiceTariffs( $name );
-			$tariffs          = $tariffs->data();
-			if ( isset( $shippingMethods['data']['terminal']['tariff'] ) || isset( $shippingMethods['tariff']['code'] ) ) {
+			$tariffs          = $this->getServiceTariffs( $eshopLogisticApi, $name );
+			if ( ! empty( $tariffs ) && ( isset( $shippingMethods['data']['terminal']['tariff'] ) || isset( $shippingMethods['tariff']['code'] ) ) ) {
 				$selectedTariffCode = $shippingMethods['data']['terminal']['tariff']['code'] ?? $shippingMethods['tariff']['code'];
 				if ( isset( $tariffs[ $selectedTariffCode ] ) ) {
 					$value[ $selectedTariffCode ] = $tariffs[ $selectedTariffCode ];
@@ -350,9 +349,8 @@ class ExportFileds {
 
 		if ( $name === 'postrf'){
 			$eshopLogisticApi = new EshopLogisticApi( new WpHttpClient() );
-			$tariffs          = $eshopLogisticApi->apiServiceTariffs( $name );
-			$tariffs          = $tariffs->data();
-			if ( isset( $shippingMethods['tariff'] ) ) {
+			$tariffs          = $this->getServiceTariffs( $eshopLogisticApi, $name );
+			if ( ! empty( $tariffs ) && isset( $shippingMethods['tariff'] ) ) {
 				$selectedTariffCode = $shippingMethods['tariff']['code'];
 				if ( isset( $tariffs[ $selectedTariffCode ] ) ) {
 					$value[ $selectedTariffCode ] = $tariffs[ $selectedTariffCode ];
@@ -486,14 +484,13 @@ class ExportFileds {
 
 		if ( $name === 'dpd'){
 			$eshopLogisticApi = new EshopLogisticApi( new WpHttpClient() );
-			$tariffs          = $eshopLogisticApi->apiServiceTariffs( $name );
-			$tariffs          = $tariffs->data();
+			$tariffs          = $this->getServiceTariffs( $eshopLogisticApi, $name );
 			$optionsRepository = new OptionsRepository();
 			$exportFormSettings = $optionsRepository->getOption('wc_esl_shipping_export_form');
 			$date = new DateTime();
 			$date->modify('+1 day');
 			$produce_date = $date->format('Y-m-d');
-			if ( isset( $shippingMethods['tariff'] ) ) {
+			if ( ! empty( $tariffs ) && isset( $shippingMethods['tariff'] ) ) {
 				$selectedTariffCode = $shippingMethods['tariff']['code'];
 				if ( isset( $tariffs[ $selectedTariffCode ] ) ) {
 					$value[ $selectedTariffCode ] = $tariffs[ $selectedTariffCode ];
@@ -524,6 +521,26 @@ class ExportFileds {
 		}
 
 		return $result;
+	}
+
+	private function getServiceTariffs( EshopLogisticApi $eshopLogisticApi, $name ) {
+		$tariffsResponse = $eshopLogisticApi->apiServiceTariffs( $name );
+		$tariffs         = array();
+
+		if (
+			is_object( $tariffsResponse )
+			&& method_exists( $tariffsResponse, 'hasErrors' )
+			&& ! $tariffsResponse->hasErrors()
+			&& method_exists( $tariffsResponse, 'data' )
+		) {
+			$tariffsData = $tariffsResponse->data();
+
+			if ( is_array( $tariffsData ) ) {
+				$tariffs = $tariffsData;
+			}
+		}
+
+		return $tariffs;
 	}
 
     public function settingsExportForOneDelivery($name)
